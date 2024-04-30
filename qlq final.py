@@ -1,8 +1,10 @@
+# Importando librerias
 import pygame
 import sys
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+from itertools import combinations
 
 # Definición de colores
 WHITE = (255, 255, 255)
@@ -16,49 +18,137 @@ WIDTH, HEIGHT = 1000, 600
 GRAPH_WIDTH = 200
 GRAPH_HEIGHT = 200
 
+KINDS_OF_COLLISION = ['Inelastica', 'Elastica', 'Completamente inelastica']
+
+# Clase que contiene el escenario 
+class Scenenary: 
+    # Constructor 
+    def __init__(self, screen, kind, *balls, e = 1):
+        """
+            Constructor de escenario, recibe como primer argumento posicional el tipo de colision
+            El resto de argumentos posicionales son las bolas que formarán parte del escenario
+            y como kwargument tenemos el coeficiente de restitución por default es 1 que es una colision completamente elastica
+        """
+        assert(kind in KINDS_OF_COLLISION)
+        self.kind = kind
+        self.e = e
+        self.balls = balls
+        self.kinetic_energy = []
+        self.momentum = []
+        self.momentum_x = []
+        self.momentum_y = []
+        self.screen = screen
+    # Actualizar información de momentum y energía cinética total 
+    def updateData(self):
+        k = 0
+        for ball in self.balls: 
+            ball.update()
+            k += ball.calculate_kinetic_energy()
+        m = [0,0,0]
+        for ball in self.balls: 
+            m += ball.momentum()
+        # Añadiendo valores a historial 
+        self.kinetic_energy.append(k)
+        self.momentum.append(m[0])
+        self.momentum.append(m[1])
+        self.momentum.append(m[2])
+    # Método para chequear coliciones entre todas las bolas que se encuentran en el escenario
+    def checkCollisions(self):
+        # Chequeando por cada bola
+        for ball1, ball2 in combinations(self.balls, 2):
+            ball1.checkCollision(ball2, self.kind, self.e)
+    # Dibujando las bolas
+    def draw(self):
+        for ball in self.balls:
+            ball.draw(self.screen)
+
 # Clase para representar una bola
 class Ball:
-    def __init__(self, x, y, radius, color, speed, angle):
+    # Constructor
+    def __init__(self, x = 200, y = 200, radius = 10, mass = 1, speed = 10, angle = 0, color = RED):
+        """
+            Constructor de clase ball recibe los siguientes argumentos: 
+            x : coordenada inicial en x - 0 por default
+            y : coordenada inicial en y - 0 por default
+            radius: Radio de la bola (m) - 1 por default 
+            speed: Velocidad de la bola (m/s) - 1 por default
+            angulo respecto a la horizontal de la bola (º) - 0 por default
+            color: Color con el que se verá la bola - rojo por default
+        """
         self.x = x
         self.y = y
         self.radius = radius
         self.color = color
         self.speed = speed
-        self.angle = angle
-        self.kinetic_energy = []
+        self.mass = mass
+        # Transformando ángulo obtenido a radianes (con estos funciona la libreria math de python)
+        self.angle = math.radians(angle % 360)
+        # Descomponiendo velocidad en ejes
+        self.vy = math.sin(self.angle) * self.speed 
+        self.vx = math.cos(self.angle) * self.speed
 
+    # Función que retorna energía cinetica actual de la bola
+    def calculate_kinetic_energy(self):
+        return .5 * self.mass * self.speed**2
+
+    # Retorna tripla con momentum total y momentum en cada eje
+    def momentum(self):
+        momentum = self.mass * self.speed
+        momentum_x = self.mass * self.vx
+        momentum_y = self.mass * self.vy
+        return (momentum, momentum_x, momentum_y)
+
+    # Actualizar valores de velocidad 
+    def updateSpeed(self, vx, vy):
+        self.vx = vx 
+        self.vy = vy
+        self.speed = math.sqrt(self.vx ** 2 + self.vy ** 2)
+    
+    # Método que actualiza la ubicación actual de la bola
     def update(self):
-        self.x += self.speed * math.cos(math.radians(self.angle))
-        self.y += self.speed * math.sin(math.radians(self.angle))
-        self.kinetic_energy.append(0.5 * self.speed**2)
+        self.x += self.vx
+        self.y += self.vy
 
+    # Helper que dibuja la bola en pantalla
     def draw(self, screen):
         pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.radius)
 
+    # Chequeamos posible collision: 
+    def checkCollision(self, other, kind, e):     
+        assert(kind in KINDS_OF_COLLISION)  
+        #Chequeando si están en contacto
+        distance = math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
+        # Sí no están en contacto ya sabemos que no hay collision 
+        if distance > self.radius + other.radius:
+            return False
+        elif kind == KINDS_OF_COLLISION[2]:
+            print("comp inelastica")
+            # Colisión completamente inelastica
+            vfx = (self.vx * self.mass + other.vx * other.mass) / (self.mass + other.mass)
+            vfy = (self.vy * self.mass + other.vy * other.mass) / (self.mass + other.mass)
+            # Actualizamos velocidades
+            self.updateSpeed(vfx, vfy)
+            other.updateSpeed(vfx, vfy)
+            return True
+        elif kind == KINDS_OF_COLLISION[1] or kind == KINDS_OF_COLLISION[0]:
+            print("Elastica o inelastica")
+            # Para colisión inelastica y elastica podemos usar las mismas formulas basadas en el coeficiente de restitución
+            vfx = (self.mass * self.vx + other.mass * (other.vx + e * (other.vx - self.vx))) / (self.mass + other.mass) 
+            othervfx = (self.mass * (self.vx - vfx) + other.mass * other.vx) / other.mass
+            vfy = (self.mass * self.vy + other.mass * (other.vy + e * (other.vy - self.vy))) / (self.mass + other.mass)
+            othervfy = (self.mass * (self.vy - vfy) + other.mass * other.vy) / other.mass
+            # Actualizando velocidades
+            self.updateSpeed(vfx, vfy)
+            other.updateSpeed(othervfx, othervfy)
+            return True
+
+
+    # Método que chequea si la bola va a colicionar con una pared (no genera perdidas de energía cinetica)
     def check_boundary_collision(self):
         if self.x - self.radius <= 50 or self.x + self.radius >= WIDTH - 50:
-            self.angle = 180 - self.angle
+            self.angle = math.pi - self.angle
         if self.y - self.radius <= 50 or self.y + self.radius >= HEIGHT - 50:
-            self.angle = 360 - self.angle
-
-def collide(ball1, ball2):
-    dx = ball2.x - ball1.x
-    dy = ball2.y - ball1.y
-    distance = math.sqrt(dx ** 2 + dy ** 2)
-
-    if distance <= ball1.radius + ball2.radius:
-        tangent = math.atan2(dy, dx)
-        angle1 = 2 * tangent - ball1.angle
-        angle2 = 2 * tangent - ball2.angle
-
-        speed1 = ball2.speed
-        speed2 = ball1.speed
-
-        ball1.speed = speed1
-        ball2.speed = speed2
-
-        ball1.angle = math.degrees(angle1)
-        ball2.angle = math.degrees(angle2)
+            self.angle = 2 * math.pi - self.angle
 
 # Inicialización de Pygame
 pygame.init()
@@ -66,14 +156,11 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
 # Creación de las bolas (valores iniciales)
-ball_radius = 20
-ball1_speed = 5
-ball2_speed = 3
-ball1_angle = 45
-ball2_angle = 135
-ball1 = Ball(100, 300, ball_radius, RED, ball1_speed, ball1_angle)
-ball2 = Ball(300, 300, ball_radius, BLUE, ball2_speed, ball2_angle)
+ball1 = Ball(speed = 3, color = BLUE)
+ball2 = Ball(700, angle = 180, speed = 2)
 
+escenario = Scenenary(screen, KINDS_OF_COLLISION[1], ball1, ball2, e = .05)
+"""
 # Inicialización de Matplotlib para la gráfica de energía cinética
 plt.ion()
 fig, ax = plt.subplots()
@@ -177,6 +264,7 @@ while configuring_balls:
     ball1 = Ball(100, 300, ball_radius, RED, ball1_speed, ball1_angle)
     ball2 = Ball(300, 300, ball_radius, BLUE, ball2_speed, ball2_angle)
 
+"""
 # Loop principal de la simulación
 running = True
 while running:
@@ -186,30 +274,25 @@ while running:
 
     screen.fill(GREEN)  # Rellenamos la pantalla con el color verde
 
-    ball1.update()
-    ball2.update()
+    escenario.updateData()
 
-    ball1.check_boundary_collision()
-    ball2.check_boundary_collision()
+    escenario.checkCollisions()
 
-    collide(ball1, ball2)
-
-    ball1.draw(screen)
-    ball2.draw(screen)
+    escenario.draw()
 
     pygame.draw.rect(screen, BLACK, (50, 50, WIDTH - 100, HEIGHT - 100), 2)  # Dibujamos la mesa de billar
-
+    """
     if len(ball1.kinetic_energy) > 200:
         ball1.kinetic_energy.pop(0)
     if len(ball2.kinetic_energy) > 200:
         ball2.kinetic_energy.pop(0)
-
     line1.set_xdata(np.arange(len(ball1.kinetic_energy)))
     line1.set_ydata(ball1.kinetic_energy)
     line2.set_xdata(np.arange(len(ball2.kinetic_energy)))
     line2.set_ydata(ball2.kinetic_energy)
-    fig.canvas.draw()
-    plt.pause(0.001)
+    #fig.canvas.draw()
+    plt.pause(0.0001)
+    """
 
     pygame.display.flip()
     clock.tick(60)
