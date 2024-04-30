@@ -65,11 +65,11 @@ class Scenenary:
 # Clase para representar una bola
 class Ball:
     # Constructor
-    def __init__(self, x = 200, y = 200, radius = 10, mass = 1, speed = 10, angle = 0, color = RED):
+    def __init__(self, x = 200, y = 200, radius = 30, mass = 1, speed = 10, angle = 0, color = RED):
         """
             Constructor de clase ball recibe los siguientes argumentos: 
-            x : coordenada inicial en x - 0 por default
-            y : coordenada inicial en y - 0 por default
+            x : coordenada inicial en x - 200 por default
+            y : coordenada inicial en y - 200 por default
             radius: Radio de la bola (m) - 1 por default 
             speed: Velocidad de la bola (m/s) - 1 por default
             angulo respecto a la horizontal de la bola (º) - 0 por default
@@ -122,7 +122,6 @@ class Ball:
         if distance > self.radius + other.radius:
             return False
         elif kind == KINDS_OF_COLLISION[2]:
-            print("comp inelastica")
             # Colisión completamente inelastica
             vfx = (self.vx * self.mass + other.vx * other.mass) / (self.mass + other.mass)
             vfy = (self.vy * self.mass + other.vy * other.mass) / (self.mass + other.mass)
@@ -131,7 +130,6 @@ class Ball:
             other.updateSpeed(vfx, vfy)
             return True
         elif kind == KINDS_OF_COLLISION[1] or kind == KINDS_OF_COLLISION[0]:
-            print("Elastica o inelastica")
             # Para colisión inelastica y elastica podemos usar las mismas formulas basadas en el coeficiente de restitución
             vfx = (self.mass * self.vx + other.mass * (other.vx + e * (other.vx - self.vx))) / (self.mass + other.mass) 
             othervfx = (self.mass * (self.vx - vfx) + other.mass * other.vx) / other.mass
@@ -156,10 +154,11 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
 # Creación de las bolas (valores iniciales)
-ball1 = Ball(speed = 3, color = BLUE)
-ball2 = Ball(700, angle = 180, speed = 2)
+ball1 = Ball(speed = 7, color = BLUE)
+ball2 = Ball(700, angle = 180, speed = 3)
+ball3 = Ball(400, speed = 0, color = BLACK, mass = 3)
 
-escenario = Scenenary(screen, KINDS_OF_COLLISION[1], ball1, ball2, e = .05)
+escenario = Scenenary(screen, KINDS_OF_COLLISION[1], ball1, ball2, ball3, e = .5)
 """
 # Inicialización de Matplotlib para la gráfica de energía cinética
 plt.ion()
