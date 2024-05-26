@@ -272,10 +272,37 @@ while running:
             simulation_started = True
     else:
         escenario.updateData()
-
+        
     pygame.display.flip()
     clock.tick(60)
+    
+# Mostrar gráficas de energía cinética y momentum
+time_steps = range(len(escenario.kinetic_energy))
 
-print(escenario.momentum_x)
-print(escenario.momentum_y)
-print(escenario.kinetic_energy)
+plt.figure(figsize=(10, 6))
+plt.plot(time_steps, escenario.kinetic_energy, label='Energía Cinética')
+plt.xlabel('Paso de Tiempo')
+plt.ylabel('Energía Cinética Total')
+plt.title('Evolución de la Energía Cinética')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Calcular el total del momentum en cada paso de tiempo
+momentums = np.array(list(zip(escenario.momentum_x, escenario.momentum_y)))
+total_momentum = np.sqrt(momentums[:, 0] ** 2 + momentums[:, 1] ** 2)
+
+# Gráfica de evolución del momentum total
+plt.figure(figsize=(10, 6))
+plt.plot(time_steps, total_momentum, label='Momentum Total')
+plt.xlabel('Paso de Tiempo')
+plt.ylabel('Momentum Total')
+plt.title('Evolución del Momentum Total')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+
+pygame.quit()
+sys.exit() 
+
