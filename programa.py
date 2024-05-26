@@ -42,14 +42,16 @@ class Scenenary:
         for ball in self.balls: 
             ball.update()
             k += ball.calculate_kinetic_energy()
-        m = [0,0,0]
+        mx = 0
+        my = 0
         for ball in self.balls: 
-            m += ball.momentum()
+            mx += ball.momentum()[1] 
+            my += ball.momentum()[2]
+            print(ball.momentum())
         # Añadiendo valores a historial 
         self.kinetic_energy.append(k)
-        self.momentum.append(m[0])
-        self.momentum.append(m[1])
-        self.momentum.append(m[2])
+        self.momentum_x.append(my)
+        self.momentum_y.append(mx)
     # Método para chequear coliciones entre todas las bolas que se encuentran en el escenario
     def checkCollisions(self):
         # Chequeando por cada bola
@@ -179,7 +181,8 @@ class Ball:
         pygame.draw.line(screen, WHITE, (self.x, self.y), (self.arrow_end_x, self.arrow_end_y), 3)
         pygame.draw.circle(screen, WHITE, (int(self.arrow_end_x), int(self.arrow_end_y)), 5)
 
-    # Chequeamos posible collision: 
+    # Chequeamos posible collisi
+    # on: 
     def checkCollision(self, other, e):      
         #Chequeando si están en contacto
         distance = math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
@@ -192,8 +195,6 @@ class Ball:
             othervfx = (self.mass * (self.vx - vfx) + other.mass * other.vx) / other.mass
             vfy = (self.mass * self.vy + other.mass * (other.vy + e * (other.vy - self.vy))) / (self.mass + other.mass)
             othervfy = (self.mass * (self.vy - vfy) + other.mass * other.vy) / other.mass
-
-
             # Actualizando velocidades
             self.updateSpeed(vfx, vfy)
             other.updateSpeed(othervfx, othervfy)
@@ -271,18 +272,10 @@ while running:
             simulation_started = True
     else:
         escenario.updateData()
-    """
-    if len(ball1.kinetic_energy) > 200:
-        ball1.kinetic_energy.pop(0)
-    if len(ball2.kinetic_energy) > 200:
-        ball2.kinetic_energy.pop(0)
-    line1.set_xdata(np.arange(len(ball1.kinetic_energy)))
-    line1.set_ydata(ball1.kinetic_energy)
-    line2.set_xdata(np.arange(len(ball2.kinetic_energy)))
-    line2.set_ydata(ball2.kinetic_energy)
-    #fig.canvas.draw()
-    plt.pause(0.0001)
-    """
 
     pygame.display.flip()
     clock.tick(60)
+
+print(escenario.momentum_x)
+print(escenario.momentum_y)
+print(escenario.kinetic_energy)
