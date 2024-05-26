@@ -33,44 +33,44 @@ def draw_ball(ball, screen):
     pygame.draw.circle(screen, ball.color, (int(ball.x), int(ball.y)), ball.radius)
 
 # Function to handle collisions between balls
-def handle_collisions(ball1, ball2):
-    dx = ball2.x - ball1.x
-    dy = ball2.y - ball1.y
+def handle_collisions(self, ball2):
+    dx = ball2.x - self.x
+    dy = ball2.y - self.y
     distance = math.sqrt(dx ** 2 + dy ** 2)
 
-    if distance < 2 * ball1.radius:
+    if distance < 2 * self.radius:
         normal_x = dx / distance
         normal_y = dy / distance
         tangent_x = -normal_y
         tangent_y = normal_x
 
         # Project velocities onto normal and tangent directions
-        v1n = ball1.vx * normal_x + ball1.vy * normal_y
-        v1t = ball1.vx * tangent_x + ball1.vy * tangent_y
+        v1n = self.vx * normal_x + self.vy * normal_y
+        v1t = self.vx * tangent_x + self.vy * tangent_y
         v2n = ball2.vx * normal_x + ball2.vy * normal_y
         v2t = ball2.vx * tangent_x + ball2.vy * tangent_y
 
         # Calculate new normal velocities after collision
-        m1 = ball1.mass
+        m1 = self.mass
         m2 = ball2.mass
         u1 = ((m1 - m2) * v1n + 2 * m2 * v2n) / (m1 + m2)
         u2 = ((m2 - m1) * v2n + 2 * m1 * v1n) / (m1 + m2)
 
         # Update velocities
-        ball1.vx = u1 * normal_x + v1t * tangent_x
-        ball1.vy = u1 * normal_y + v1t * tangent_y
+        self.vx = u1 * normal_x + v1t * tangent_x
+        self.vy = u1 * normal_y + v1t * tangent_y
         ball2.vx = u2 * normal_x + v2t * tangent_x
         ball2.vy = u2 * normal_y + v2t * tangent_y
 
 # Function to update balls
-def update_balls(ball1, ball2):
-    ball1.x += ball1.vx
-    ball1.y += ball1.vy
+def update_balls(self, ball2):
+    self.x += self.vx
+    self.y += self.vy
     ball2.x += ball2.vx
     ball2.y += ball2.vy
 
 # Function to handle events
-def handle_events(ball1, ball2):
+def handle_events(self, ball2):
     global simulation_started
 
     for event in pygame.event.get():
@@ -78,17 +78,17 @@ def handle_events(ball1, ball2):
             return False
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                if ball1.rect.collidepoint(event.pos):
-                    ball1.dragging = True
+                if self.rect.collidepoint(event.pos):
+                    self.dragging = True
                 elif ball2.rect.collidepoint(event.pos):
                     ball2.dragging = True
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
-                ball1.dragging = False
+                self.dragging = False
                 ball2.dragging = False
         elif event.type == pygame.MOUSEMOTION:
-            if ball1.dragging:
-                ball1.x, ball1.y = event.pos
+            if self.dragging:
+                self.x, self.y = event.pos
             elif ball2.dragging:
                 ball2.x, ball2.y = event.pos
 
@@ -124,7 +124,7 @@ pygame.display.set_caption("Ball Collision Simulation")
 clock = pygame.time.Clock()
 
 # Create balls
-ball1 = Ball(WIDTH // 4, HEIGHT // 2, 4, 0, 1, RED, BALL_RADIUS)
+self = Ball(WIDTH // 4, HEIGHT // 2, 4, 0, 1, RED, BALL_RADIUS)
 ball2 = Ball(3 * WIDTH // 4, HEIGHT // 2, -4, 0, 1, BLUE, BALL_RADIUS)
 
 # Variables
@@ -140,33 +140,33 @@ while running:
     screen.fill(WHITE)
 
     # Handle events
-    if not handle_events(ball1, ball2):
+    if not handle_events(self, ball2):
         break
 
     # Update simulation
     if simulation_started:
-        update_balls(ball1, ball2)
-        handle_collisions(ball1, ball2)
+        update_balls(self, ball2)
+        handle_collisions(self, ball2)
 
         # Calculate and record energy and momentum
-        total_energy = 0.5 * (ball1.mass * (ball1.vx ** 2 + ball1.vy ** 2) + ball2.mass * (ball2.vx ** 2 + ball2.vy ** 2))
+        total_energy = 0.5 * (self.mass * (self.vx ** 2 + self.vy ** 2) + ball2.mass * (ball2.vx ** 2 + ball2.vy ** 2))
         energies.append(total_energy)
-        total_momentum = ball1.mass * math.sqrt(ball1.vx ** 2 + ball1.vy ** 2) + ball2.mass * math.sqrt(ball2.vx ** 2 + ball2.vy ** 2)
+        total_momentum = self.mass * math.sqrt(self.vx ** 2 + self.vy ** 2) + ball2.mass * math.sqrt(ball2.vx ** 2 + ball2.vy ** 2)
         momentums.append(total_momentum)
         times.append(pygame.time.get_ticks() / 1000)  # Convert milliseconds to seconds
 
         # Check for collisions and record collision times
-        dx = ball2.x - ball1.x
-        dy = ball2.y - ball1.y
+        dx = ball2.x - self.x
+        dy = ball2.y - self.y
         distance = math.sqrt(dx ** 2 + dy ** 2)
-        if distance < 2 * ball1.radius:
+        if distance < 2 * self.radius:
             collision_times.append(times[-1])
 
         # Plot energy and momentum
         plot_data(times, energies, momentums, collision_times)
 
     # Draw balls
-    draw_ball(ball1, screen)
+    draw_ball(self, screen)
     draw_ball(ball2, screen)
 
     # Draw start button

@@ -39,6 +39,48 @@ class Ball:
         pygame.draw.line(screen, GREEN, (self.x, self.y), (self.arrow_end_x, self.arrow_end_y), 3)
         pygame.draw.circle(screen, GREEN, (int(self.arrow_end_x), int(self.arrow_end_y)), 5)
 
+    def handle_events(self, event):
+        global simulation_started
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.rect.collidepoint(event.pos):
+                    self.dragging = True
+                    mouse_x, mouse_y = event.pos
+                    self.offset_x = self.x - mouse_x
+                    self.offset_y = self.y - mouse_y
+            elif event.button == 3:  # Right click
+                # Check if mouse is on the arrow tip of ball1
+                if math.hypot(event.pos[0] - self.arrow_end_x, event.pos[1] - self.arrow_end_y) < 10:
+                    self.dragging_arrow = True
+                    self.arrow_offset_x = self.arrow_end_x - event.pos[0]
+                    self.arrow_offset_y = self.arrow_end_y - event.pos[1]
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                if self.dragging:
+                    self.dragging = False
+            elif event.button == 3:  # Right click
+                if self.dragging_arrow:
+                    self.dragging_arrow = False
+                    # Calculate velocity based on arrow length and direction
+                    dx = self.arrow_end_x - self.x
+                    dy = self.arrow_end_y - self.y
+                    velocity_factor = 0.0005 * math.sqrt(dx ** 2 + dy ** 2)
+                    self.vx = dx * velocity_factor
+                    self.vy = dy * velocity_factor
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                mouse_x, mouse_y = event.pos
+                self.x = mouse_x + self.offset_x
+                self.y = mouse_y + self.offset_y
+                self.arrow_end_x = self.x
+                self.arrow_end_y = self.y
+                self.update_rect()
+            elif self.dragging_arrow:
+                self.arrow_end_x, self.arrow_end_y = event.pos[0] + self.arrow_offset_x, event.pos[1] + self.arrow_offset_y
+        
+        return True
+
 # Function to handle collisions between balls
 def handle_collisions(ball1, ball2):
     dx = ball2.x - ball1.x
@@ -77,81 +119,6 @@ def update_balls(ball1, ball2):
     ball2.x += ball2.vx
     ball2.y += ball2.vy
     ball2.update_rect()  # Update rect position
-
-def handle_events(ball1, ball2):
-    global simulation_started
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            return False
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                if ball1.rect.collidepoint(event.pos):
-                    ball1.dragging = True
-                    mouse_x, mouse_y = event.pos
-                    ball1.offset_x = ball1.x - mouse_x
-                    ball1.offset_y = ball1.y - mouse_y
-                elif ball2.rect.collidepoint(event.pos):
-                    ball2.dragging = True
-                    mouse_x, mouse_y = event.pos
-                    ball2.offset_x = ball2.x - mouse_x
-                    ball2.offset_y = ball2.y - mouse_y
-            elif event.button == 3:  # Right click
-                # Check if mouse is on the arrow tip of ball1
-                if math.hypot(event.pos[0] - ball1.arrow_end_x, event.pos[1] - ball1.arrow_end_y) < 10:
-                    ball1.dragging_arrow = True
-                    ball1.arrow_offset_x = ball1.arrow_end_x - event.pos[0]
-                    ball1.arrow_offset_y = ball1.arrow_end_y - event.pos[1]
-                # Check if mouse is on the arrow tip of ball2
-                elif math.hypot(event.pos[0] - ball2.arrow_end_x, event.pos[1] - ball2.arrow_end_y) < 10:
-                    ball2.dragging_arrow = True
-                    ball2.arrow_offset_x = ball2.arrow_end_x - event.pos[0]
-                    ball2.arrow_offset_y = ball2.arrow_end_y - event.pos[1]
-        elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
-                if ball1.dragging:
-                    ball1.dragging = False
-                elif ball2.dragging:
-                    ball2.dragging = False
-            elif event.button == 3:  # Right click
-                if ball1.dragging_arrow:
-                    ball1.dragging_arrow = False
-                    # Calculate velocity based on arrow length and direction
-                    dx = ball1.arrow_end_x - ball1.x
-                    dy = ball1.arrow_end_y - ball1.y
-                    velocity_factor = 0.0005 * math.sqrt(dx ** 2 + dy ** 2)
-                    ball1.vx = dx * velocity_factor
-                    ball1.vy = dy * velocity_factor
-                if ball2.dragging_arrow:
-                    ball2.dragging_arrow = False
-                    # Calculate velocity based on arrow length and direction
-                    dx = ball2.arrow_end_x - ball2.x
-                    dy = ball2.arrow_end_y - ball2.y
-                    velocity_factor = 0.0005 * math.sqrt(dx ** 2 + dy ** 2)
-                    ball2.vx = dx * velocity_factor
-                    ball2.vy = dy * velocity_factor
-        elif event.type == pygame.MOUSEMOTION:
-            if ball1.dragging:
-                mouse_x, mouse_y = event.pos
-                ball1.x = mouse_x + ball1.offset_x
-                ball1.y = mouse_y + ball1.offset_y
-                ball1.arrow_end_x = ball1.x
-                ball1.arrow_end_y = ball1.y
-                ball1.update_rect()
-            elif ball2.dragging:
-                mouse_x, mouse_y = event.pos
-                ball2.x = mouse_x + ball2.offset_x
-                ball2.y = mouse_y + ball2.offset_y
-                ball2.arrow_end_x = ball2.x
-                ball2.arrow_end_y = ball2.y
-                ball2.update_rect()
-            elif ball1.dragging_arrow:
-                ball1.arrow_end_x, ball1.arrow_end_y = event.pos[0] + ball1.arrow_offset_x, event.pos[1] + ball1.arrow_offset_y
-            elif ball2.dragging_arrow:
-                ball2.arrow_end_x, ball2.arrow_end_y = event.pos[0] + ball2.arrow_offset_x, event.pos[1] + ball2.arrow_offset_y
-
-    return True
-
 
 # Function to plot energy and momentum
 def plot_data(times, energies, momentums, collision_times):
@@ -194,15 +161,20 @@ times = []
 energies = []
 momentums = []
 collision_times = []  # List to store collision times
+gameEnd = False
 
 # Main loop
 while running:
     screen.fill(WHITE)
-
-    # Handle events
-    if not handle_events(ball1, ball2):
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            gameEnd = True
+        else: 
+            ball2.handle_events(event)
+            ball1.handle_events(event)
+    if gameEnd:
         break
-
     # Update simulation
     if simulation_started:
         update_balls(ball1, ball2)
@@ -223,7 +195,7 @@ while running:
             collision_times.append(times[-1])
 
         # Plot energy and momentum
-        plot_data(times, energies, momentums, collision_times)
+        #plot_data(times, energies, momentums, collision_times)
 
     # Draw balls
     ball1.draw(screen)

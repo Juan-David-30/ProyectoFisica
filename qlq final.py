@@ -18,19 +18,17 @@ WIDTH, HEIGHT = 1000, 600
 GRAPH_WIDTH = 200
 GRAPH_HEIGHT = 200
 
-KINDS_OF_COLLISION = ['Inelastica', 'Elastica', 'Completamente inelastica']
+velocity_factor = 0.1
 
 # Clase que contiene el escenario 
 class Scenenary: 
     # Constructor 
-    def __init__(self, screen, kind, *balls, e = 1):
+    def __init__(self, screen, *balls, e = 1):
         """
             Constructor de escenario, recibe como primer argumento posicional el tipo de colision
             El resto de argumentos posicionales son las bolas que formarán parte del escenario
             y como kwargument tenemos el coeficiente de restitución por default es 1 que es una colision completamente elastica
         """
-        assert(kind in KINDS_OF_COLLISION)
-        self.kind = kind
         self.e = e
         self.balls = balls
         self.kinetic_energy = []
@@ -56,7 +54,12 @@ class Scenenary:
     def checkCollisions(self):
         # Chequeando por cada bola
         for ball1, ball2 in combinations(self.balls, 2):
-            ball1.checkCollision(ball2, self.kind, self.e)
+            ball1.checkCollision(ball2, self.e)
+
+    def handleEvent(self, event):
+        for ball in self.balls:
+            ball.handle_events(event)
+
     # Dibujando las bolas
     def draw(self):
         for ball in self.balls:
@@ -87,6 +90,65 @@ class Ball:
         self.vy = math.sin(self.angle) * self.speed 
         self.vx = math.cos(self.angle) * self.speed
 
+        self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius, 2 * self.radius, 2 * self.radius)
+        self.dragging = False
+        self.dragging_arrow = False
+        self.arrow_end_x = self.x
+        self.arrow_end_y = self.y
+
+        self.updateArrowPos()
+
+    def handle_events(self, event):
+        global simulation_started
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.rect.collidepoint(event.pos):
+                    self.dragging = True
+                    mouse_x, mouse_y = event.pos
+                    self.offset_x = self.x - mouse_x
+                    self.offset_y = self.y - mouse_y
+            elif event.button == 3:  # Right click
+                # Check if mouse is on the arrow tip of ball1
+                if math.hypot(event.pos[0] - self.arrow_end_x, event.pos[1] - self.arrow_end_y) < 10:
+                    self.dragging_arrow = True
+                    self.arrow_offset_x = self.arrow_end_x - event.pos[0]
+                    self.arrow_offset_y = self.arrow_end_y - event.pos[1]
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                if self.dragging:
+                    self.dragging = False
+            elif event.button == 3:  # Right click
+                if self.dragging_arrow:
+                    self.dragging_arrow = False
+                    # Calculate velocity based on arrow length and direction
+                    dx = self.arrow_end_x - self.x
+                    dy = self.arrow_end_y - self.y
+                    velocity_factor = 0.0005 * math.sqrt(dx ** 2 + dy ** 2)
+                    self.vx = dx * velocity_factor
+                    self.vy = dy * velocity_factor
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                mouse_x, mouse_y = event.pos
+                self.x = mouse_x + self.offset_x
+                self.y = mouse_y + self.offset_y
+                self.arrow_end_x = self.x
+                self.arrow_end_y = self.y
+                self.update_rect()
+            elif self.dragging_arrow:
+                self.arrow_end_x, self.arrow_end_y = event.pos[0] + self.arrow_offset_x, event.pos[1] + self.arrow_offset_y
+        
+        return True
+
+    def updateArrowPos(self):
+        dx = self.vx/velocity_factor 
+        dy = self.vy / velocity_factor        
+        self.arrow_end_x = self.x + dx
+        self.arrow_end_y = self.y + dy
+
+    def update_rect(self):
+        self.rect.topleft = (self.x - self.radius, self.y - self.radius)
+
     # Función que retorna energía cinetica actual de la bola
     def calculate_kinetic_energy(self):
         return .5 * self.mass * self.speed**2
@@ -108,36 +170,35 @@ class Ball:
     def update(self):
         self.x += self.vx
         self.y += self.vy
+        self.arrow_end_x += self.vx
+        self.arrow_end_y += self.vy
 
     # Helper que dibuja la bola en pantalla
     def draw(self, screen):
         pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.radius)
+        pygame.draw.line(screen, WHITE, (self.x, self.y), (self.arrow_end_x, self.arrow_end_y), 3)
+        pygame.draw.circle(screen, WHITE, (int(self.arrow_end_x), int(self.arrow_end_y)), 5)
 
     # Chequeamos posible collision: 
-    def checkCollision(self, other, kind, e):     
-        assert(kind in KINDS_OF_COLLISION)  
+    def checkCollision(self, other, e):      
         #Chequeando si están en contacto
         distance = math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
         # Sí no están en contacto ya sabemos que no hay collision 
         if distance > self.radius + other.radius:
             return False
-        elif kind == KINDS_OF_COLLISION[2]:
-            # Colisión completamente inelastica
-            vfx = (self.vx * self.mass + other.vx * other.mass) / (self.mass + other.mass)
-            vfy = (self.vy * self.mass + other.vy * other.mass) / (self.mass + other.mass)
-            # Actualizamos velocidades
-            self.updateSpeed(vfx, vfy)
-            other.updateSpeed(vfx, vfy)
-            return True
-        elif kind == KINDS_OF_COLLISION[1] or kind == KINDS_OF_COLLISION[0]:
+        else:
             # Para colisión inelastica y elastica podemos usar las mismas formulas basadas en el coeficiente de restitución
             vfx = (self.mass * self.vx + other.mass * (other.vx + e * (other.vx - self.vx))) / (self.mass + other.mass) 
             othervfx = (self.mass * (self.vx - vfx) + other.mass * other.vx) / other.mass
             vfy = (self.mass * self.vy + other.mass * (other.vy + e * (other.vy - self.vy))) / (self.mass + other.mass)
             othervfy = (self.mass * (self.vy - vfy) + other.mass * other.vy) / other.mass
+
+
             # Actualizando velocidades
             self.updateSpeed(vfx, vfy)
             other.updateSpeed(othervfx, othervfy)
+            self.updateArrowPos()
+            other.updateArrowPos()
             return True
 
 
@@ -148,6 +209,17 @@ class Ball:
         if self.y - self.radius <= 50 or self.y + self.radius >= HEIGHT - 50:
             self.angle = 2 * math.pi - self.angle
 
+coefficient = 1
+
+while True:
+    try:
+        coefficient = float(input("Ingrese un coeficiente de restitución (entre 0 y 1): "))
+        if 0 <= coefficient <= 1:
+            break
+    except ValueError:
+        pass
+    print("Valor no valido")
+
 # Inicialización de Pygame
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -156,130 +228,49 @@ clock = pygame.time.Clock()
 # Creación de las bolas (valores iniciales)
 ball1 = Ball(speed = 7, color = BLUE)
 ball2 = Ball(700, angle = 180, speed = 3)
-ball3 = Ball(400, speed = 0, color = BLACK, mass = 3)
+ball3 = Ball(400, speed = 0, color = BLACK)
 
-escenario = Scenenary(screen, KINDS_OF_COLLISION[1], ball1, ball2, ball3, e = .5)
-"""
-# Inicialización de Matplotlib para la gráfica de energía cinética
-plt.ion()
-fig, ax = plt.subplots()
-line1, = ax.plot([], [], label='Bola 1', color='r')
-line2, = ax.plot([], [], label='Bola 2', color='b')
-ax.legend()
-ax.set_xlim(0, 200)
-ax.set_ylim(0, 100)
+escenario = Scenenary(screen, ball1, ball2, ball3, e = coefficient)
 
-# Función para mostrar el menú
-def draw_menu():
-    screen.fill(WHITE)
-    font = pygame.font.SysFont(None, 30)
 
-    # Título
-    text = font.render("Configuración de Bolas", True, BLACK)
-    screen.blit(text, (WIDTH // 2 - text.get_width() // 2, 50))
+running = True
+simulation_started = False
+times = []
+energies = []
+momentums = []
+collision_times = []  # List to store collision times
+gameEnd = False
 
-    # Parámetros de la bola 1
-    text = font.render("Bola 1:", True, BLACK)
-    screen.blit(text, (100, 150))
-    text = font.render("Tamaño:", True, BLACK)
-    screen.blit(text, (100, 200))
-    text = font.render("Velocidad:", True, BLACK)
-    screen.blit(text, (100, 250))
-    text = font.render("Ángulo:", True, BLACK)
-    screen.blit(text, (100, 300))
-
-    # Parámetros de la bola 2
-    text = font.render("Bola 2:", True, BLACK)
-    screen.blit(text, (WIDTH - 300, 150))
-    text = font.render("Tamaño:", True, BLACK)
-    screen.blit(text, (WIDTH - 300, 200))
-    text = font.render("Velocidad:", True, BLACK)
-    screen.blit(text, (WIDTH - 300, 250))
-    text = font.render("Ángulo:", True, BLACK)
-    screen.blit(text, (WIDTH - 300, 300))
-
-    # Valores de los parámetros
-    text = font.render(str(ball_radius), True, BLACK)
-    screen.blit(text, (250, 200))
-    text = font.render(str(ball1_speed), True, BLACK)
-    screen.blit(text, (250, 250))
-    text = font.render(str(ball1_angle), True, BLACK)
-    screen.blit(text, (250, 300))
-
-    text = font.render(str(ball_radius), True, BLACK)
-    screen.blit(text, (WIDTH - 150, 200))
-    text = font.render(str(ball2_speed), True, BLACK)
-    screen.blit(text, (WIDTH - 150, 250))
-    text = font.render(str(ball2_angle), True, BLACK)
-    screen.blit(text, (WIDTH - 150, 300))
-
-    # Botón de inicio
-    pygame.draw.rect(screen, GREEN, (WIDTH // 2 - 50, HEIGHT - 100, 100, 50))
-    text = font.render("Iniciar", True, WHITE)
-    screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT - 80))
-
-    pygame.display.flip()
-
-# Loop principal
-configuring_balls = True
-while configuring_balls:
-    draw_menu()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_pos = pygame.mouse.get_pos()
-
-            # Comprobar si se hace clic en el botón de inicio
-            if WIDTH // 2 - 50 <= mouse_pos[0] <= WIDTH // 2 + 50 and HEIGHT - 100 <= mouse_pos[1] <= HEIGHT - 50:
-                configuring_balls = False
-
-    # Actualizar parámetros de las bolas según la entrada del usuario
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT]:
-        ball_radius = max(5, ball_radius - 1)
-    if keys[pygame.K_RIGHT]:
-        ball_radius = min(50, ball_radius + 1)
-    if keys[pygame.K_UP]:
-        ball1_speed = min(20, ball1_speed + 1)
-    if keys[pygame.K_DOWN]:
-        ball1_speed = max(1, ball1_speed - 1)
-    if keys[pygame.K_a]:
-        ball2_speed = min(20, ball2_speed + 1)
-    if keys[pygame.K_s]:
-        ball2_speed = max(1, ball2_speed - 1)
-    if keys[pygame.K_w]:
-        ball1_angle = (ball1_angle + 5) % 360
-    if keys[pygame.K_z]:
-        ball1_angle = (ball1_angle - 5) % 360
-    if keys[pygame.K_o]:
-        ball2_angle = (ball2_angle + 5) % 360
-    if keys[pygame.K_l]:
-        ball2_angle = (ball2_angle - 5) % 360
-
-    # Actualizar las bolas con los nuevos parámetros
-    ball1 = Ball(100, 300, ball_radius, RED, ball1_speed, ball1_angle)
-    ball2 = Ball(300, 300, ball_radius, BLUE, ball2_speed, ball2_angle)
-
-"""
 # Loop principal de la simulación
 running = True
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        else: 
+            escenario.handleEvent(event)
 
     screen.fill(GREEN)  # Rellenamos la pantalla con el color verde
-
-    escenario.updateData()
 
     escenario.checkCollisions()
 
     escenario.draw()
 
     pygame.draw.rect(screen, BLACK, (50, 50, WIDTH - 100, HEIGHT - 100), 2)  # Dibujamos la mesa de billar
+
+    if not simulation_started:
+        # Draw start button
+        start_button_rect = pygame.Rect(700, 400, 80, 40)
+        pygame.draw.rect(screen, BLACK, start_button_rect)
+        font = pygame.font.Font(None, 24)
+        text = font.render("Start", True, WHITE)
+        text_rect = text.get_rect(center=start_button_rect.center)
+        screen.blit(text, text_rect)
+
+        if pygame.mouse.get_pressed()[0] and start_button_rect.collidepoint(pygame.mouse.get_pos()):
+            simulation_started = True
+    else:
+        escenario.updateData()
     """
     if len(ball1.kinetic_energy) > 200:
         ball1.kinetic_energy.pop(0)
